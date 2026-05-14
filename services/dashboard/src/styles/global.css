@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Reusable Glassmorphism classes */
+  .glass-panel {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-xl;
+  }
+  
+  .glass-button {
+    @apply px-4 py-2 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/10 rounded-lg transition-all duration-200 text-sm font-medium;
+  }
+  
+  .glass-badge-pass {
+    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded text-xs font-semibold;
+  }
+  
+  .glass-badge-fail {
+    @apply bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-xs font-semibold;
+  }
+}
+
+/* Custom Scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

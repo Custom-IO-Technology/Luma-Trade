@@ -1,0 +1,53 @@
+# ==========================================
+# Lumina Trade — Obscura Engine
+# ==========================================
+
+# --- Environment & Secrets ---
+.env
+.env.production
+.env.local
+.env.*.local
+
+# --- Rust ---
+services/ingestor/target/
+**/*.rs.bk
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# --- Node / React ---
+node_modules/
+services/dashboard/dist/
+services/dashboard/build/
+.vite/
+
+# --- Docker & Data ---
+data/questdb/*
+data/redis/*
+!data/questdb/.gitkeep
+!data/redis/.gitkeep
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# --- Logs ---
+*.log
+logs/

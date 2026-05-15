@@ -38,7 +38,7 @@ pub trait ExchangeClient: Send + Sync {
 
     /// Subscribe to kline streams for the given symbols and interval.
     async fn subscribe(
-        &self,
+        &mut self,
         symbols: &[String],
         interval: &str,
     ) -> Result<(), Box<dyn std::error::Error>>;

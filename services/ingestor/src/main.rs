@@ -1,19 +1,25 @@
 mod backoff;
 mod bybit_client;
+mod bybit_rest;
 mod config;
 mod exchange_trait;
 mod questdb_writer;
 mod redis_publisher;
 
-use tracing::{error, info, Level};
+use tracing::{error, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::backoff::ExponentialBackoff;
 use crate::bybit_client::BybitClient;
+use crate::bybit_rest::BybitRestClient;
 use crate::config::Config;
 use crate::exchange_trait::ExchangeClient;
 use crate::questdb_writer::QuestDbWriter;
 use crate::redis_publisher::RedisPublisher;
+
+fn build_zset_key(prefix: &str, symbol: &str) -> String {
+    format!("{}:{}", prefix, symbol)
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,21 +29,90 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
-    info!("Starting Obscura Ingestor...");
+    info!("Starting Obscura Ingestor (Hard Boundary mode)...");
 
     // 2. Load Configuration
     let config = Config::from_env();
     info!("Configuration loaded. Symbols: {:?}", config.bybit_symbols);
 
-    // 3. Initialize Sinks (Redis and QuestDB)
-    let redis_pub = RedisPublisher::new(&config.redis_url, &config.redis_stream_key)?;
+    // 3. Initialize Sinks
+    let redis_pub = RedisPublisher::new(&config.redis_url)?;
     let questdb_writer = QuestDbWriter::new(&config.questdb_ilp_host, config.questdb_ilp_port);
 
-    // 4. Main Event Loop with Exponential Backoff
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 4. COLD START — Fetch 30 days of historical 5m candles from Bybit REST
+    //    Seed QuestDB and Redis ZSET. Skip if ZSET already populated.
+    // ═══════════════════════════════════════════════════════════════════════════
+    let rest_client = BybitRestClient::new(&config.bybit_rest_url);
+
+    for symbol in &config.bybit_symbols {
+        let zset_key = build_zset_key(&config.redis_zset_prefix, symbol);
+
+        let existing_count = match redis_pub.zcount(&zset_key).await {
+            Ok(c) => c,
+            Err(e) => {
+                error!(error = %e, symbol = %symbol, "Failed to check ZSET count");
+                0
+            }
+        };
+
+        if existing_count > 0 {
+            info!(
+                symbol = %symbol,
+                count = existing_count,
+                "ZSET already populated, skipping cold start for {}",
+                symbol
+            );
+            continue;
+        }
+
+        info!(
+            symbol = %symbol,
+            "Cold start: fetching 30 days of 5m historical candles"
+        );
+
+        let historical = match rest_client
+            .fetch_30_days(symbol, &config.bybit_rest_interval)
+            .await
+        {
+            Ok(candles) => candles,
+            Err(e) => {
+                error!(error = %e, symbol = %symbol, "Cold start REST fetch failed");
+                continue;
+            }
+        };
+
+        if historical.is_empty() {
+            warn!(symbol = %symbol, "Cold start returned 0 candles, skipping");
+            continue;
+        }
+
+        info!(
+            symbol = %symbol,
+            count = historical.len(),
+            "Fetched historical candles, writing to sinks"
+        );
+
+        // Write to QuestDB (batch)
+        questdb_writer.write_batch(&historical).await;
+
+        // Write to Redis ZSET (batch, capped at max_size)
+        if let Err(e) = redis_pub
+            .zadd_batch(&zset_key, &historical, config.redis_zset_max_size)
+            .await
+        {
+            error!(error = %e, symbol = %symbol, "Failed to batch ZADD");
+        }
+    }
+
+    info!("Cold start complete. Entering live WebSocket loop.");
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 5. LIVE STREAM — Connect Bybit WebSocket, write to ZSET and QuestDB
+    // ═══════════════════════════════════════════════════════════════════════════
     let mut backoff = ExponentialBackoff::default();
 
     loop {
-        // Instantiate the Exchange Client (Bybit)
         let mut exchange_client: Box<dyn ExchangeClient> =
             Box::new(BybitClient::new(&config.bybit_ws_url));
 
@@ -48,7 +123,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        // Subscribe to configured streams
         if let Err(e) = exchange_client
             .subscribe(&config.bybit_symbols, &config.bybit_kline_interval)
             .await
@@ -60,19 +134,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         info!("Connected and subscribed. Listening for messages...");
-        backoff.reset(1); // Reset backoff on successful connection
+        backoff.reset(1);
 
-        // Read messages
         loop {
             match exchange_client.next_message().await {
                 Ok(Some(kline)) => {
-                    // 1. Publish all ticks to Redis (Hot Data)
-                    if let Err(e) = redis_pub.publish(&kline).await {
-                        error!("Redis publish error: {}", e);
-                        // We do not break the loop for a Redis error, we keep trying
+                    let symbol = kline.symbol.clone();
+                    let zset_key =
+                        build_zset_key(&config.redis_zset_prefix, &kline.symbol);
+
+                    // 1. Write to Redis ZSET (every tick — the Hard Boundary bridge)
+                    if let Err(e) = redis_pub
+                        .zadd_candle(&zset_key, &kline, config.redis_zset_max_size)
+                        .await
+                    {
+                        error!(error = %e, symbol = %symbol, "ZSET write error");
                     }
 
-                    // 2. Write closed candles to QuestDB (Cold Data)
+                    // 2. Write confirmed candles to QuestDB (cold storage)
                     if kline.confirm {
                         questdb_writer.write(&kline).await;
                     }

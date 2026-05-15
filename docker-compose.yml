@@ -1,13 +1,5 @@
-version: '3.8'
-
 # =============================================================================
 # Obscura Trading Engine — Production Docker Compose
-# =============================================================================
-# Memory Budget (16GB Host):
-#   QuestDB:        2GB    | Python Engine:  2GB
-#   Redis:          512MB  | Rust Ingestor:  256MB
-#   Nginx (UI):     128MB  | Total Reserved: ~4.9GB
-#   Remaining for OS + Future AI: ~11GB
 # =============================================================================
 
 x-logging: &default-logging
@@ -44,7 +36,7 @@ services:
     restart: always
     logging: *default-logging
     ports:
-      - "9000:9000"   # Web UI for manual SQL queries
+      - "9000:9000"
     environment:
       - QDB_CAIRO_MAX_UNCOMMITTED_ROWS=50000
       - QDB_LINE_TCP_NET_ACTIVE_CONNECTION_LIMIT=4
@@ -85,9 +77,9 @@ services:
     networks:
       - trading_net
 
-  python-engine:
+  engine:
     build:
-      context: ./services/engine
+      context: ./services/engine-rust
       dockerfile: Dockerfile
     container_name: obscura-engine
     restart: always
@@ -99,7 +91,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 512M
     networks:
       - trading_net
 
@@ -114,9 +106,9 @@ services:
     restart: always
     logging: *default-logging
     ports:
-      - "80:80"    # Exposed to local network
+      - "80:80"
     depends_on:
-      - python-engine
+      - engine
     deploy:
       resources:
         limits:

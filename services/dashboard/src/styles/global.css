@@ -1,41 +1,171 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer components {
-  /* Reusable Glassmorphism classes */
-  .glass-panel {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-xl;
-  }
-  
-  .glass-button {
-    @apply px-4 py-2 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/10 rounded-lg transition-all duration-200 text-sm font-medium;
-  }
-  
-  .glass-badge-pass {
-    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded text-xs font-semibold;
-  }
-  
-  .glass-badge-fail {
-    @apply bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-xs font-semibold;
-  }
+html, body, #root {
+    height: 100%;
 }
 
-/* Custom Scrollbar for dark theme */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+body {
+    margin: 0;
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #0D0D0F;
+    color: #F4F4F5;
+    font-size: 13px;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.font-mono {
+    font-family: 'IBM Plex Mono', monospace;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+.font-sans {
+    font-family: 'IBM Plex Sans', sans-serif;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+/* Hide scrollbar but keep functionality */
+.scrollbar-hidden::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: #0D0D0F;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #27272A;
+    border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #3F3F46;
+}
+
+@layer base {
+    :root {
+        --background: 240 6% 5%;
+        --foreground: 0 0% 96%;
+        --card: 240 5% 10%;
+        --card-foreground: 0 0% 96%;
+        --popover: 240 5% 10%;
+        --popover-foreground: 0 0% 96%;
+        --primary: 0 0% 96%;
+        --primary-foreground: 240 6% 5%;
+        --secondary: 240 5% 15%;
+        --secondary-foreground: 0 0% 96%;
+        --muted: 240 5% 15%;
+        --muted-foreground: 240 5% 65%;
+        --accent: 240 5% 15%;
+        --accent-foreground: 0 0% 96%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 96%;
+        --border: 240 5% 16%;
+        --input: 240 5% 16%;
+        --ring: 240 5% 65%;
+        --radius: 0.25rem;
+    }
+}
+
+@layer base {
+    * {
+        border-color: hsl(var(--border));
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+/* Signal pulse animation when a card fires */
+@keyframes signal-pulse {
+    0%, 100% {
+        box-shadow: inset 3px 0 0 0 #EF4444, 0 0 0 0 rgba(239, 68, 68, 0.5);
+    }
+    50% {
+        box-shadow: inset 3px 0 0 0 #EF4444, 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+}
+
+.signal-pulse {
+    animation: signal-pulse 1.6s ease-in-out infinite;
+}
+
+/* Cross-fade for chart refreshes */
+@keyframes chart-fade {
+    0% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+.chart-fade {
+    animation: chart-fade 700ms ease-out;
+}
+
+/* Slide-in for new log entries */
+@keyframes slide-in-top {
+    0% {
+        opacity: 0;
+        transform: translateY(-8px);
+        background-color: rgba(34, 197, 94, 0.08);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        background-color: transparent;
+    }
+}
+
+.slide-in-top {
+    animation: slide-in-top 600ms ease-out;
+}
+
+/* Blinking dot for live status */
+@keyframes status-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.dot-blink {
+    animation: status-blink 1.8s ease-in-out infinite;
+}
+
+/* Subtle grid background pattern */
+.grid-bg {
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+/* Selection */
+::selection {
+    background: #22C55E33;
+    color: #F4F4F5;
+}
+
+/* Confidence met pulse */
+@keyframes confidence-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+.confidence-pulse {
+    animation: confidence-pulse 2s ease-in-out infinite;
+}
+
+/* Hide TradingView Lightweight Charts Logo */
+#tv-attr-logo, 
+.tv-lightweight-charts-watermark,
+a[href*="tradingview.com"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
 }

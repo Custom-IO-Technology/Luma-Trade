@@ -38,7 +38,7 @@ impl ExchangeClient for BybitClient {
     }
 
     async fn subscribe(
-        &self,
+        &mut self,
         symbols: &[String],
         interval: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -59,11 +59,13 @@ impl ExchangeClient for BybitClient {
 
         info!(topics = ?topics, "Subscribing to kline streams");
 
-        // We need mutable access to send — this is a design consideration.
-        // In production, you'd split the stream into read/write halves.
-        // For now, the subscribe happens right after connect before the read loop.
-        // The actual send will be handled in main.rs after splitting the stream.
-        debug!(message = %sub_msg, "Subscription message prepared");
+        let ws = self
+            .ws_stream
+            .as_mut()
+            .ok_or("WebSocket not connected")?;
+
+        ws.send(Message::Text(sub_msg.to_string())).await?;
+        info!("Subscription message sent successfully");
 
         Ok(())
     }

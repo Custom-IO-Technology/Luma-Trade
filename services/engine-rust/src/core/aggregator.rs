@@ -43,7 +43,7 @@ pub fn aggregate_candles(
     // Convert timestamp (ms) to datetime
     df = df.lazy()
         .with_column(
-            (col("timestamp") * lit(1_000_000)).cast(DataType::Datetime(TimeUnit::Nanoseconds, None)).alias("time_dt")
+            (col("timestamp") * lit(1_000_000i64)).cast(DataType::Datetime(TimeUnit::Nanoseconds, None)).alias("time_dt")
         )
         .sort("time_dt", SortOptions::default())
         .collect()?;

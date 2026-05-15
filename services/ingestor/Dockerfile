@@ -1,9 +1,18 @@
 # ==============================================================================
 # Build Stage
 # ==============================================================================
-FROM rust:1.75-bullseye AS builder
+FROM rust:1-bookworm AS builder
 
 WORKDIR /usr/src/obscura-ingestor
+
+# Hardware optimization for the specific host building the image
+ENV RUSTFLAGS="-C target-cpu=native"
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create dummy src to cache dependencies
 COPY Cargo.toml ./
@@ -20,14 +29,14 @@ RUN touch src/main.rs && cargo build --release
 # ==============================================================================
 # Runtime Stage
 # ==============================================================================
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install runtime dependencies (OpenSSL is required for tungstenite TLS)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libssl1.1 \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy compiled binary from builder

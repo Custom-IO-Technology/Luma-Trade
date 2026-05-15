@@ -25,7 +25,7 @@ impl Indicator for AtrIndicator {
                 (col("low") - col("prev_close")).abs().alias("tr3")
             ])
             .with_column(
-                max_horizontal([col("tr1"), col("tr2"), col("tr3")])?.alias("true_range")
+                polars::prelude::max_horizontal([col("tr1"), col("tr2"), col("tr3")])?.alias("true_range")
             )
             .with_column(
                 col("true_range").rolling_mean(RollingOptions {

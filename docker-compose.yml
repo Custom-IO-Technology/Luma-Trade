@@ -95,6 +95,27 @@ services:
     networks:
       - trading_net
 
+  agent-service:
+    build:
+      context: ./services/agent-service
+      dockerfile: Dockerfile
+    container_name: obscura-agent
+    restart: always
+    logging: *default-logging
+    ports:
+      - "8001:8001"
+    env_file: .env.production
+    volumes:
+      - ./data/sqlite:/app/data
+      - ./data/screenshots:/app/screenshots
+    depends_on:
+      redis:
+        condition: service_healthy
+      engine:
+        condition: service_started
+    networks:
+      - trading_net
+
   # ---------------------------------------------------------------------------
   # FRONTEND
   # ---------------------------------------------------------------------------

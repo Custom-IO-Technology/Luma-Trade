@@ -18,7 +18,7 @@ pub async fn ws_handler(
     Query(query): Query<HistoryQuery>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let interval_str = query.interval.unwrap_or_else(|| "5".to_string());
+    let interval_str = query.interval.unwrap_or_else(|| "30".to_string());
     ws.on_upgrade(move |socket| handle_socket(socket, symbol, interval_str, state))
 }
 
@@ -34,6 +34,13 @@ async fn handle_socket(mut socket: WebSocket, symbol: String, interval_str: Stri
 
     loop {
         tokio::select! {
+            msg = socket.recv() => {
+                match msg {
+                    None | Some(Err(_)) => break,
+                    Some(Ok(Message::Close(_))) => break,
+                    _ => {}
+                }
+            }
             _ = tick_interval.tick() => {
                 // FAST PATH: Poll Redis for price change
                 let key_clone = key.clone();
@@ -59,7 +66,9 @@ async fn handle_socket(mut socket: WebSocket, symbol: String, interval_str: Stri
                     
                     if df.height() > 0 {
                         if let Some(msg) = build_kline_message(&bybit_symbol, &df) {
-                            let _ = socket.send(Message::Text(serde_json::to_string(&msg).unwrap())).await;
+                            if socket.send(Message::Text(serde_json::to_string(&msg).unwrap())).await.is_err() {
+                                break;
+                            }
                         }
                     }
                 }
@@ -96,7 +105,9 @@ async fn handle_socket(mut socket: WebSocket, symbol: String, interval_str: Stri
                 let scorer = ConfidenceScorer::new(rules);
                 let result = scorer.score(&df, &bybit_symbol, "LONG", &state.settings);
                 
-                let _ = socket.send(Message::Text(serde_json::to_string(&result).unwrap())).await;
+                if socket.send(Message::Text(serde_json::to_string(&result).unwrap())).await.is_err() {
+                    break;
+                }
             }
         }
     }

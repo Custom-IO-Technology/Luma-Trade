@@ -30,7 +30,7 @@ pub async fn get_history(
     Query(query): Query<HistoryQuery>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let interval = query.interval.unwrap_or_else(|| "5".to_string());
+    let interval = query.interval.unwrap_or_else(|| "30".to_string());
     let bybit_symbol = normalize_symbol(&symbol);
     let key = state.settings.zset_key_for_symbol(&bybit_symbol);
 
@@ -98,7 +98,7 @@ pub async fn get_score(
     Query(query): Query<ScoreQuery>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<ScoreResult>, StatusCode> {
-    let interval = query.interval.unwrap_or_else(|| "5".to_string());
+    let interval = query.interval.unwrap_or_else(|| "30".to_string());
     let direction = query.direction.unwrap_or_else(|| "LONG".to_string());
     let bybit_symbol = normalize_symbol(&symbol);
     let key = state.settings.zset_key_for_symbol(&bybit_symbol);

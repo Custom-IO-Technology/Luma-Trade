@@ -8,10 +8,7 @@ import { useBotStore } from '../../stores/botStore';
 import { useMarketStore } from '../../stores/marketStore';
 
 export default function AppShell() {
-  const [coins, setCoins] = useState(() => {
-    const saved = localStorage.getItem('obscura_tracked_coins');
-    return saved ? JSON.parse(saved) : ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
-  });
+  const [coins, setCoins] = useState(['BTCUSDT', 'ETHUSDT', 'SOLUSDT']);
   const [newCoin, setNewCoin] = useState('');
   const [expandedCoin, setExpandedCoin] = useState(null);
   const [isBotPanelOpen, setIsBotPanelOpen] = useState(false);
@@ -20,21 +17,51 @@ export default function AppShell() {
   const { timeframe, setTimeframe } = useMarketStore();
   const scores = useScoreStore(state => state.scores);
 
+  // Sync tracked coins list with database on mount
   useEffect(() => {
-    localStorage.setItem('obscura_tracked_coins', JSON.stringify(coins));
-  }, [coins]);
+    fetch('/api/agent/coins')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.coins) {
+          setCoins(data.coins);
+        }
+      })
+      .catch(err => console.error("Error loading coins from database:", err));
+  }, []);
 
-  const handleAddCoin = (e) => {
+  const handleAddCoin = async (e) => {
     e.preventDefault();
     const formatted = newCoin.toUpperCase().trim();
     if (formatted && !coins.includes(formatted)) {
-      setCoins([...coins, formatted]);
-      setNewCoin('');
+      try {
+        const res = await fetch('/api/agent/coins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: formatted }),
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          setCoins([...coins, formatted]);
+          setNewCoin('');
+        }
+      } catch (err) {
+        console.error("Failed to add coin to database:", err);
+      }
     }
   };
 
-  const handleRemoveCoin = (symToRemove) => {
-    setCoins(coins.filter(sym => sym !== symToRemove));
+  const handleRemoveCoin = async (symToRemove) => {
+    try {
+      const res = await fetch(`/api/agent/coins/${symToRemove}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setCoins(coins.filter(sym => sym !== symToRemove));
+      }
+    } catch (err) {
+      console.error("Failed to remove coin from database:", err);
+    }
   };
 
   return (
@@ -75,8 +102,6 @@ export default function AppShell() {
                   <div className="fixed inset-0 z-40" onClick={() => setIsTimeframeOpen(false)} />
                   <div className="absolute top-full left-0 mt-1 w-32 bg-[#1C1C21] border border-zinc-800 shadow-2xl z-50 py-1 overflow-hidden backdrop-blur-md bg-opacity-95">
                     {[
-                      { val: '5', label: '5M' },
-                      { val: '15', label: '15M' },
                       { val: '30', label: '30M' },
                       { val: '60', label: '1H' },
                       { val: '240', label: '4H' },

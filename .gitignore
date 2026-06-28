@@ -10,6 +10,7 @@
 
 # --- Rust ---
 services/ingestor/target/
+services/engine-rust/target/
 **/*.rs.bk
 
 # --- Python ---

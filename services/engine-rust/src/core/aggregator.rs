@@ -14,12 +14,13 @@ pub fn aggregate_candles(
         ("1", "1m"),
         ("5", "5m"),
         ("15", "15m"),
+        ("30", "30m"),
         ("60", "1h"),
         ("240", "4h"),
         ("1440", "1d"),
     ].iter().cloned().collect();
 
-    let duration = timeframe_map.get(target_timeframe).unwrap_or(&"5m");
+    let duration = timeframe_map.get(target_timeframe).unwrap_or(&"30m");
 
     // Convert Vec<KlineMessage> to columns
     let symbols: Vec<String> = candles.iter().map(|c| c.symbol.clone()).collect();
@@ -48,7 +49,7 @@ pub fn aggregate_candles(
         .sort("time_dt", SortOptions::default())
         .collect()?;
 
-    if *duration == "5m" {
+    if *duration == "30m" || *duration == "5m" {
         let mut df_sel = df.select(["time_dt", "open", "high", "low", "close", "volume"])?;
         df_sel.rename("time_dt", "time")?;
         return Ok(df_sel);

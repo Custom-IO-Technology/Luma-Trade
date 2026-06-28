@@ -40,14 +40,14 @@ impl BybitRestClient {
         symbol: &str,
         interval: &str,
         limit: u32,
-        start_ms: Option<u64>,
+        end_ms: Option<u64>,
     ) -> Result<Vec<KlineMessage>, Box<dyn std::error::Error>> {
         let mut url = format!(
             "{}/v5/market/kline?category=linear&symbol={}&interval={}&limit={}",
             self.base_url, symbol, interval, limit
         );
-        if let Some(start) = start_ms {
-            url.push_str(&format!("&start={}", start));
+        if let Some(end) = end_ms {
+            url.push_str(&format!("&end={}", end));
         }
 
         let resp = self
@@ -98,24 +98,24 @@ impl BybitRestClient {
         interval: &str,
     ) -> Result<Vec<KlineMessage>, Box<dyn std::error::Error>> {
         let max_limit: u32 = 200; // Bybit max per request
-        let target_count: u32 = 8640; // 30 days of 5m candles
+        let target_count: u32 = 8640; // 30 days of base candles (e.g. 5m or 30m)
         let _now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
 
         let mut all_candles: Vec<KlineMessage> = Vec::with_capacity(target_count as usize);
-        let mut start_ms: Option<u64> = None;
+        let mut end_ms: Option<u64> = None;
 
         info!(
             symbol = %symbol,
             interval = %interval,
-            "Starting 30-day historical fetch from Bybit REST"
+            "Starting historical fetch from Bybit REST"
         );
 
         loop {
             let batch = self
-                .fetch_klines(symbol, interval, max_limit, start_ms)
+                .fetch_klines(symbol, interval, max_limit, end_ms)
                 .await?;
 
             let batch_len = batch.len();
@@ -130,8 +130,8 @@ impl BybitRestClient {
                 "Fetched batch"
             );
 
-            // Move the cursor back to before the earliest candle
-            start_ms = Some(batch[0].timestamp.saturating_sub(1));
+            // Move the cursor back to before the earliest candle in this batch (oldest)
+            end_ms = Some(batch[0].timestamp.saturating_sub(1));
             all_candles.extend(batch);
 
             if batch_len < max_limit as usize || all_candles.len() >= target_count as usize {
@@ -143,7 +143,7 @@ impl BybitRestClient {
         all_candles.sort_by_key(|c| c.timestamp);
         all_candles.dedup_by_key(|c| c.timestamp);
 
-        // Truncate to last 30 days worth
+        // Truncate to last target_count worth of candles
         if all_candles.len() > target_count as usize {
             all_candles = all_candles.split_off(all_candles.len() - target_count as usize);
         }
@@ -151,7 +151,7 @@ impl BybitRestClient {
         info!(
             symbol = %symbol,
             count = all_candles.len(),
-            "Completed 30-day historical fetch"
+            "Completed historical fetch"
         );
 
         Ok(all_candles)
